@@ -1,0 +1,81 @@
+---
+title: "Coffee Quality Data Cleaning"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+
+
+```{r include=FALSE}
+library(tidyverse)
+library(xray)
+library(dlookr)
+library(summarytools)
+library(skimr)
+library(lubridate)
+df_original <- read.csv("df_arabica_clean.csv", header = T)
+####https://www.kaggle.com/datasets/fatihb/coffee-quality-data-cqi/download?datasetVersionNumber=1 
+```
+## Data Problems
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+print(dfSummary(df_original, 
+                style = "grid", plain.ascii = FALSE,
+                tmp.img.dir = "./img",
+                varnumbers   = FALSE, 
+                valid.col    = FALSE, 
+                #graph.magnif = 0.76
+),
+method = 'render')
+
+xray::anomalies(coffee_original)
+
+```
+
+```{r message=FALSE, warning=FALSE}
+diagnose_outlier(df_original) %>% 
+  filter(outliers_cnt > 0)
+```
+
+
+## Data Cleaning
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+#remove unnecessary variables
+df_clean <- df_original %>% 
+    subset(select = -c(X, ID, Farm.Name:Harvest.Year, Status, Defects, Expiration:Certification.Contact)) %>% 
+    mutate(Grading.Date = mdy(Grading.Date)) %>%     # convert grading_date from from character to date
+    filter(!Processing.Method=='')
+
+# clean up some variable values
+df_clean$Variety[is.na(df_clean$Variety) | (df_clean$Variety) == ''] <- "Other"
+df_clean$Variety[(df_clean$Variety) =='unknown'] <- "Other"
+df_clean$Variety[(df_clean$Variety) =='unknow'] <- "Other"
+df_clean$Processing.Method[(df_clean$Processing.Method) =='SEMI-LAVADO'] <- "Semi Washed"
+df_clean$Color[(df_clean$Color) =='yello-green' | (df_clean$Color) =='yellow green' | (df_clean$Color) =='yellow- green' ] <- "yellow-green"
+df_clean$Color[(df_clean$Color) =='browish-green'] <- "brownish-green"
+
+# check the final result
+print(dfSummary(df_clean, 
+                style = "grid", plain.ascii = FALSE,
+                tmp.img.dir = "./img",
+                varnumbers   = FALSE, 
+                valid.col    = FALSE, 
+                #graph.magnif = 0.76
+),
+method = 'render')
+
+xray::anomalies(df_clean)
+```
+1. Dropped variables that are either too messy or irrelevant for the coffee quality analysis (`Farm.Name`, `Mill`, `Harvest.Year`, `ICO.Number`, `Certification.Address`, `Number.of.Bags`, `Bag.Weight`, `Defects`). 
+2. Converted `grading_date` to date type.
+3. The detected outliers were not removed as the grades can be from 0 to 10, which is within the normal range.
+4. Renamed missing values for the `variety` variable and 'unknown'/'unknow' to "Other" variety.
+5. Exclude observations with missing `Processing.Method`
+6. Group different spellings of "yellow-green" and corrected a typo for brownigh-green color.
+7. Although `Category.One.Defects` was highlighted as with an anomaly, it is actually not as its values are boolean and 0 refers to no defects while 1 stands for a defect detected.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+## save clean data as new file
+df_clean %>% 
+    write.csv("coffee_quality_clean.csv", row.names=FALSE)
+```
+
