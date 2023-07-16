@@ -31,6 +31,11 @@ xray::anomalies(coffee_original)
 
 ```
 
+```{r warning=FALSE, message=FALSE, include=FALSE}
+df_original %>%
+  diagnose_web_report()
+```
+
 ```{r message=FALSE, warning=FALSE}
 diagnose_outlier(df_original) %>% 
   filter(outliers_cnt > 0)
